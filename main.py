@@ -31,9 +31,9 @@ def get_pots():
     return response_contents['pots']
 
 
-def get_saving_pot():
+def get_saving_pot(pot_name):
     for i in get_pots():
-        if i['name'] == 'Wedding' and i['deleted'] == False:
+        if i['name'] == "Wedding" and i['deleted'] is False:
             return i['id']
 
 
@@ -50,15 +50,38 @@ def make_deposit(amount):
         "amount": amount,
         "dedupe_id": randint(1000000, 9999999)
     }
-    response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot()}/deposit", headers=headers, data=params)
-    return response.text
+    response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot('Wedding')}/deposit",
+                            headers=headers,
+                            data=params)
+    return response
+
+
+def print_balance(balance):
+    outfile = open("balance.txt", "a")
+    outfile.write(f"{balance}\n")
+    outfile.close()
+
+
+def total_failed():
+    total = 0
+    with open('balance.txt', 'r') as inp:
+        for line in inp:
+            try:
+                num = float(line)
+                total += num
+            except ValueError:
+                print(f"{line} is not a number!")
+    print(f"Total unable to be processed: £{total/100}")
 
 
 def balance_check():
     if get_balance() < day_of_year:
         print("Current balance lower than required")
+        print_balance(day_of_year)
+        total_failed()
     else:
-        print(make_deposit(day_of_year))
+        print(make_deposit(day_of_year).text)
+        open('balance.txt', 'w').close()
 
 
 balance_check()
