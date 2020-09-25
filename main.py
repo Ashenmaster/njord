@@ -13,7 +13,6 @@ day_of_year = datetime.today().timetuple().tm_yday
 userID = os.getenv("USERID")
 token = os.getenv("ACCESSTOKEN")
 headers = {"Authorization": f"Bearer {token}"}
-seed(1)
 
 
 def get_account_id():
@@ -50,6 +49,8 @@ def make_deposit(amount):
         "amount": amount,
         "dedupe_id": randint(1000000, 9999999)
     }
+    seed(1)
+    print(params)
     response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot('Wedding')}/deposit",
                             headers=headers,
                             data=params)
