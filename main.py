@@ -13,6 +13,8 @@ day_of_year = datetime.today().timetuple().tm_yday
 userID = os.getenv("USERID")
 token = os.getenv("ACCESSTOKEN")
 headers = {"Authorization": f"Bearer {token}"}
+now = datetime.today()
+date = now.strftime("%b-%d-%Y")
 
 
 def get_account_id():
@@ -81,9 +83,12 @@ def balance_check():
         total_failed()
     else:
         print(make_deposit(day_of_year).text)
-        open('outputs/complete.txt', 'w').close()
+        print(f"Deposit of £{day_of_year/100} made")
+        open(f'outputs/complete-{date}.txt', 'w').close()
         # open('outputs/balance.txt', 'w').close()
 
-if os.path.isfile('outputs/complete.txt'):
+
+if os.path.isfile(f"outputs/complete-{date}.txt"):
     print("Script ran today already")
+else:
     balance_check()

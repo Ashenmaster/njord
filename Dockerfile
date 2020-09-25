@@ -6,6 +6,10 @@ ENV ACCESSTOKEN=
 
 WORKDIR /code
 
+RUN mkdir outputs
+
+VOLUME /code/outputs
+
 COPY requirements.txt .
 
 RUN pip install -r requirements.txt
