@@ -13,6 +13,8 @@ day_of_year = datetime.today().timetuple().tm_yday
 userID = os.getenv("USERID")
 token = os.getenv("ACCESSTOKEN")
 headers = {"Authorization": f"Bearer {token}"}
+now = datetime.today()
+date = now.strftime("%b-%d-%Y")
 
 
 def get_account_id():
@@ -50,7 +52,6 @@ def make_deposit(amount):
         "dedupe_id": randint(1000000, 9999999)
     }
     seed(1)
-    print(params)
     response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot('Wedding')}/deposit",
                             headers=headers,
                             data=params)
@@ -58,14 +59,14 @@ def make_deposit(amount):
 
 
 def print_balance(balance):
-    outfile = open("balance.txt", "a")
+    outfile = open("outputs/balance.txt", "a")
     outfile.write(f"{balance}\n")
     outfile.close()
 
 
 def total_failed():
     total = 0
-    with open('balance.txt', 'r') as inp:
+    with open('outputs/balance.txt', 'r') as inp:
         for line in inp:
             try:
                 num = float(line)
@@ -82,7 +83,12 @@ def balance_check():
         total_failed()
     else:
         print(make_deposit(day_of_year).text)
-        open('balance.txt', 'w').close()
+        print(f"Deposit of £{day_of_year/100} made")
+        open(f'outputs/complete-{date}.txt', 'w').close()
+        # open('outputs/balance.txt', 'w').close()
 
 
-balance_check()
+if os.path.isfile(f"outputs/complete-{date}.txt"):
+    print("Script ran today already")
+else:
+    balance_check()
