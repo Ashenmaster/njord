@@ -3,11 +3,24 @@ import os
 from datetime import datetime
 from random import randint
 from random import seed
+from slack import WebClient
+from slack.errors import SlackApiError
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+DEPOSIT_BLOCK = {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": (
+                "Welcome to Slack! :wave: We're so glad you're here. :blush:\n\n"
+                "*Get started by completing the steps below:*"
+            ),
+        },
+    }
 
 day_of_year = datetime.today().timetuple().tm_yday
 userID = os.getenv("USERID")
@@ -15,6 +28,20 @@ token = os.getenv("ACCESSTOKEN")
 headers = {"Authorization": f"Bearer {token}"}
 now = datetime.today()
 date = now.strftime("%b-%d-%Y")
+
+
+def send_slack_message(amount):
+    client = WebClient(token=os.environ['SLACKTOKEN'])
+    try:
+        response = client.chat_postMessage(
+            channel='#random',
+            text=f":pound: £{amount/100} has been deposited")
+        assert response["message"]["text"] == f":pound: £{amount/100} has been deposited"
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["ok"] is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        print(f"Got an error: {e.response['error']}")
 
 
 def get_account_id():
@@ -84,11 +111,18 @@ def balance_check():
     else:
         print(make_deposit(day_of_year).text)
         print(f"Deposit of £{day_of_year/100} made")
+        send_slack_message(day_of_year)
         open(f'outputs/complete-{date}.txt', 'w').close()
         # open('outputs/balance.txt', 'w').close()
 
 
-if os.path.isfile(f"outputs/complete-{date}.txt"):
-    print("Script ran today already")
-else:
-    balance_check()
+def main():
+    if os.path.isfile(f"outputs/complete-{date}.txt"):
+        print("Script ran today already")
+    else:
+        balance_check()
+
+
+if __name__ == "__main__":
+    main()
+
