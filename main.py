@@ -3,23 +3,55 @@ import os
 from datetime import datetime
 from random import randint
 from random import seed
+from slack import WebClient
+from slack.errors import SlackApiError
 
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv("./.env")
+
+DEPOSIT_BLOCK = {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": (
+                "Welcome to Slack! :wave: We're so glad you're here. :blush:\n\n"
+                "*Get started by completing the steps below:*"
+            ),
+        },
+    }
 
 day_of_year = datetime.today().timetuple().tm_yday
+
 userID = os.getenv("USERID")
 token = os.getenv("ACCESSTOKEN")
 headers = {"Authorization": f"Bearer {token}"}
 now = datetime.today()
 date = now.strftime("%b-%d-%Y")
 
+def logging(response1, response2):
+    print(f"{date}-{response1}-{response2}")
+
+
+def send_slack_message(amount):
+    client = WebClient(token=os.environ['SLACKTOKEN'])
+    try:
+        response = client.chat_postMessage(
+            channel='#random',
+            text=f":pound: £{amount/100} has been deposited")
+        assert response["message"]["text"] == f":pound: £{amount/100} has been deposited"
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["ok"] is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        print(f"Got an error: {e.response['error']}")
+
 
 def get_account_id():
     params = {"account_type": "uk_retail_joint"}
     response = requests.get('https://api.monzo.com/accounts', headers=headers, params=params)
+    logging(response.status_code, response.text)
     response_content = json.loads(response.text)
     account_id = response_content['accounts'][0]['id']
     return account_id
@@ -28,6 +60,7 @@ def get_account_id():
 def get_pots():
     params = {"current_account_id": f"{get_account_id()}"}
     response = requests.get('https://api.monzo.com/pots', headers=headers, params=params)
+    logging(response.status_code, response.text)
     response_contents = json.loads(response.text)
     return response_contents['pots']
 
@@ -41,20 +74,22 @@ def get_saving_pot(pot_name):
 def get_balance():
     params = {"account_id": f"{get_account_id()}"}
     response = requests.get('https://api.monzo.com/balance', headers=headers, params=params)
+    logging(response.status_code, response.text)
     response_contents = json.loads(response.text)
     return response_contents['balance']
 
 
 def make_deposit(amount):
+    seed(1)
     params = {
         "source_account_id": get_account_id(),
         "amount": amount,
         "dedupe_id": randint(1000000, 9999999)
     }
-    seed(1)
     response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot('Wedding')}/deposit",
                             headers=headers,
                             data=params)
+    logging(response.status_code, response.text)
     return response
 
 
@@ -84,11 +119,18 @@ def balance_check():
     else:
         print(make_deposit(day_of_year).text)
         print(f"Deposit of £{day_of_year/100} made")
+        send_slack_message(day_of_year)
         open(f'outputs/complete-{date}.txt', 'w').close()
         # open('outputs/balance.txt', 'w').close()
 
 
-if os.path.isfile(f"outputs/complete-{date}.txt"):
-    print("Script ran today already")
-else:
-    balance_check()
+def main():
+    if os.path.isfile(f"outputs/complete-{date}.txt"):
+        print("Script ran today already")
+    else:
+        balance_check()
+
+
+if __name__ == "__main__":
+    main()
+
