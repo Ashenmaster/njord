@@ -6,42 +6,86 @@ from random import seed
 from slack import WebClient
 from slack.errors import SlackApiError
 
+from base64 import b64encode
+from subprocess import run
+
+
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DEPOSIT_BLOCK = {
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": (
-                "Welcome to Slack! :wave: We're so glad you're here. :blush:\n\n"
-                "*Get started by completing the steps below:*"
-            ),
-        },
-    }
+# DEPOSIT_BLOCK = {
+#         "type": "section",
+#         "text": {
+#             "type": "mrkdwn",
+#             "text": (
+#                 "Welcome to Slack! :wave: We're so glad you're here. :blush:\n\n"
+#                 "*Get started by completing the steps below:*"
+#             ),
+#         },
+#     }
 
 day_of_year = datetime.today().timetuple().tm_yday
 userID = os.getenv("USERID")
 token = os.getenv("ACCESSTOKEN")
-headers = {"Authorization": f"Bearer {token}"}
 now = datetime.today()
 date = now.strftime("%b-%d-%Y")
+clientID = os.getenv("CLIENTID")
+clientSecret = os.getenv("CLIENTSECRET")
+ownerID = os.getenv("OWNERID")
+refreshToken = os.getenv("REFRESHTOKEN")
 
 
-def send_slack_message(amount):
-    client = WebClient(token=os.environ['SLACKTOKEN'])
-    try:
-        response = client.chat_postMessage(
-            channel='#random',
-            text=f":pound: £{amount/100} has been deposited")
-        assert response["message"]["text"] == f":pound: £{amount/100} has been deposited"
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["ok"] is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-        print(f"Got an error: {e.response['error']}")
+
+def b64encodestr(string):
+    return b64encode(string.encode("utf-8")).decode()
+
+
+def refresh_token():
+    global refreshToken
+    url = "https://api.monzo.com/oauth2/token"
+
+    payload = {'grant_type': 'refresh_token',
+               'client_id': 'oauth2client_00009zaxmD668jOqvejEBd',
+               'client_secret': f'{clientSecret}',
+               'refresh_token': f'{refreshToken}'}
+    files = [
+
+    ]
+    headers = {
+        'Authorization': 'token eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJlYiI6IlBNdFUzcnBYVllQc2N2RVRnOFVNIiwianRpIjoiYWNjdG9rXzAwMDA5emI0aVJzeHVuaUhKWWp0ZFIiLCJ0eXAiOiJhdCIsInYiOiI2In0.o_m6wqMl2IZ-akMEz-6Yd_xtcYg5TRr9mQDqCLJYp-vUtNsIAAM-QjGNWEyhgyNcbU5oOZwixdiQEwIBx8Phbw',
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload, files=files)
+    response_content = json.loads(response.text)
+    refreshToken = response_content['refresh_token']
+    b64val = b64encodestr(refreshToken)
+    cmd = f"""kubectl patch secret njord -p='{{"data":{{"REFRESHTOKEN": "{b64val}"}}}}'"""
+    run(cmd, shell=True)
+    return response_content['access_token']
+
+
+access_token = refresh_token()
+
+headers = {"Authorization": f"Bearer {access_token}"}
+
+
+
+
+
+# def send_slack_message(amount):
+#     client = WebClient(token=os.environ['SLACKTOKEN'])
+#     try:
+#         response = client.chat_postMessage(
+#             channel='#random',
+#             text=f":pound: £{amount/100} has been deposited")
+#         assert response["message"]["text"] == f":pound: £{amount/100} has been deposited"
+#     except SlackApiError as e:
+#         # You will get a SlackApiError if "ok" is False
+#         assert e.response["ok"] is False
+#         assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+#         print(f"Got an error: {e.response['error']}")
 
 
 def get_account_id():
