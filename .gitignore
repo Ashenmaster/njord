@@ -5,3 +5,4 @@ lib/
 .idea/
 .pytest_cache/
 pyvenv.cfg
+outputs/

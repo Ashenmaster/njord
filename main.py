@@ -13,7 +13,7 @@ from subprocess import run
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv("./.env")
 
 # DEPOSIT_BLOCK = {
 #         "type": "section",
@@ -27,6 +27,7 @@ load_dotenv()
 #     }
 
 day_of_year = datetime.today().timetuple().tm_yday
+
 userID = os.getenv("USERID")
 token = os.getenv("ACCESSTOKEN")
 now = datetime.today()
@@ -75,6 +76,9 @@ headers = {"Authorization": f"Bearer {access_token}"}
 
 
 
+def logging(response1, response2):
+    print(f"{date}-{response1}-{response2}")
+
 
 def send_slack_message(amount):
     client = WebClient(token=os.environ['SLACKTOKEN'])
@@ -93,6 +97,7 @@ def send_slack_message(amount):
 def get_account_id():
     params = {"account_type": "uk_retail_joint"}
     response = requests.get('https://api.monzo.com/accounts', headers=headers, params=params)
+    logging(response.status_code, response.text)
     response_content = json.loads(response.text)
     account_id = response_content['accounts'][0]['id']
     return account_id
@@ -101,6 +106,7 @@ def get_account_id():
 def get_pots():
     params = {"current_account_id": f"{get_account_id()}"}
     response = requests.get('https://api.monzo.com/pots', headers=headers, params=params)
+    logging(response.status_code, response.text)
     response_contents = json.loads(response.text)
     return response_contents['pots']
 
@@ -114,20 +120,22 @@ def get_saving_pot(pot_name):
 def get_balance():
     params = {"account_id": f"{get_account_id()}"}
     response = requests.get('https://api.monzo.com/balance', headers=headers, params=params)
+    logging(response.status_code, response.text)
     response_contents = json.loads(response.text)
     return response_contents['balance']
 
 
 def make_deposit(amount):
+    seed(1)
     params = {
         "source_account_id": get_account_id(),
         "amount": amount,
         "dedupe_id": randint(1000000, 9999999)
     }
-    seed(1)
     response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot('Wedding')}/deposit",
                             headers=headers,
                             data=params)
+    logging(response.status_code, response.text)
     return response
 
 
