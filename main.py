@@ -6,29 +6,79 @@ from random import seed
 from slack import WebClient
 from slack.errors import SlackApiError
 
+from base64 import b64encode
+from subprocess import run
+
+
 import requests
 from dotenv import load_dotenv
 
 load_dotenv("./.env")
 
-DEPOSIT_BLOCK = {
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": (
-                "Welcome to Slack! :wave: We're so glad you're here. :blush:\n\n"
-                "*Get started by completing the steps below:*"
-            ),
-        },
-    }
+# DEPOSIT_BLOCK = {
+#         "type": "section",
+#         "text": {
+#             "type": "mrkdwn",
+#             "text": (
+#                 "Welcome to Slack! :wave: We're so glad you're here. :blush:\n\n"
+#                 "*Get started by completing the steps below:*"
+#             ),
+#         },
+#     }
 
 day_of_year = datetime.today().timetuple().tm_yday
 
 userID = os.getenv("USERID")
 token = os.getenv("ACCESSTOKEN")
-headers = {"Authorization": f"Bearer {token}"}
 now = datetime.today()
 date = now.strftime("%b-%d-%Y")
+clientID = os.getenv("CLIENTID")
+clientSecret = os.getenv("CLIENTSECRET")
+ownerID = os.getenv("OWNERID")
+refreshToken = os.getenv("REFRESHTOKEN")
+accessToken = os.getenv("ACCESSTOKEN")
+
+
+
+def b64encodestr(string):
+    return b64encode(string.encode("utf-8")).decode()
+
+
+def refresh_token():
+    global refreshToken
+    url = "https://api.monzo.com/oauth2/token"
+
+    payload = {'grant_type': 'refresh_token',
+               'client_id': 'oauth2client_00009zaxmD668jOqvejEBd',
+               'client_secret': f'{clientSecret}',
+               'refresh_token': f'{refreshToken}'}
+    files = [
+
+    ]
+    headers = {
+        'Authorization': f'token {accessToken}',
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload, files=files)
+    response_content = json.loads(response.text)
+    print(response_content)
+    refreshToken = response_content['refresh_token']
+    b64valrefresh = b64encodestr(refreshToken)
+    b64valaccess = b64encodestr(response_content['access_token'])
+    cmd = f"""kubectl patch secret njord -p='{{"data":{{"REFRESHTOKEN": "{b64valrefresh}"}}}}'"""
+    cmd2 = f"""kubectl patch secret njord -p='{{"data":{{"ACCESSTOKEN": "{b64valaccess}"}}}}'"""
+    run(cmd, shell=True)
+    run(cmd2, shell=True)
+
+    return response_content['access_token']
+
+
+access_token = refresh_token()
+
+headers = {"Authorization": f"Bearer {access_token}"}
+
+
+
 
 def logging(response1, response2):
     print(f"{date}-{response1}-{response2}")
