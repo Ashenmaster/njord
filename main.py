@@ -1,8 +1,8 @@
 import json
 import os
+import random
+import string
 from datetime import datetime
-from random import randint
-from random import seed
 from slack import WebClient
 from slack.errors import SlackApiError
 
@@ -130,15 +130,15 @@ def get_balance():
 
 
 def make_deposit(amount):
-    seed(1)
     params = {
         "source_account_id": get_account_id(),
         "amount": amount,
-        "dedupe_id": randint(1000000, 9999999)
+        "dedupe_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k=25))
     }
     response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot('Wedding')}/deposit",
                             headers=headers,
                             data=params)
+    logging("request", response.request.body)
     logging(response.status_code, response.text)
     return response
 
