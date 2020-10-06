@@ -35,6 +35,7 @@ clientID = os.getenv("CLIENTID")
 clientSecret = os.getenv("CLIENTSECRET")
 ownerID = os.getenv("OWNERID")
 refreshToken = os.getenv("REFRESHTOKEN")
+accessToken = os.getenv("ACCESSTOKEN")
 
 
 
@@ -54,16 +55,19 @@ def refresh_token():
 
     ]
     headers = {
-        'Authorization': 'token ***REMOVED***.o_m6wqMl2IZ-akMEz-6Yd_xtcYg5TRr9mQDqCLJYp-vUtNsIAAM-QjGNWEyhgyNcbU5oOZwixdiQEwIBx8Phbw',
+        'Authorization': f'token {accessToken}',
     }
 
     response = requests.request("POST", url, headers=headers, data=payload, files=files)
     response_content = json.loads(response.text)
     print(response_content)
     refreshToken = response_content['refresh_token']
-    b64val = b64encodestr(refreshToken)
-    cmd = f"""kubectl patch secret njord -p='{{"data":{{"REFRESHTOKEN": "{b64val}"}}}}'"""
+    b64valrefresh = b64encodestr(refreshToken)
+    b64valaccess = b64encodestr(response_content['access_token'])
+    cmd = f"""kubectl patch secret njord -p='{{"data":{{"REFRESHTOKEN": "{b64valrefresh}"}}}}'"""
+    cmd2 = f"""kubectl patch secret njord -p='{{"data":{{"ACCESSTOKEN": "{b64valaccess}"}}}}'"""
     run(cmd, shell=True)
+    run(cmd2, shell=True)
 
     return response_content['access_token']
 
