@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import random
 import string
@@ -26,6 +27,8 @@ load_dotenv("./.env")
 #         },
 #     }
 
+logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
+
 day_of_year = datetime.today().timetuple().tm_yday
 
 userID = os.getenv("USERID")
@@ -39,9 +42,8 @@ refreshToken = os.getenv("REFRESHTOKEN")
 accessToken = os.getenv("ACCESSTOKEN")
 
 
-
-def b64encodestr(string):
-    return b64encode(string.encode("utf-8")).decode()
+def b64encodestr(key):
+    return b64encode(key.encode("utf-8")).decode()
 
 
 def refresh_token():
@@ -58,10 +60,13 @@ def refresh_token():
     headers = {
         'Authorization': f'token {accessToken}',
     }
-
     response = requests.request("POST", url, headers=headers, data=payload, files=files)
+    logging.info(f"{response.status_code}-{response.text}")
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise SystemExit(logging.error(e))
     response_content = json.loads(response.text)
-    print(response_content)
     refreshToken = response_content['refresh_token']
     b64valrefresh = b64encodestr(refreshToken)
     b64valaccess = b64encodestr(response_content['access_token'])
@@ -69,19 +74,12 @@ def refresh_token():
     cmd2 = f"""kubectl patch secret njord -p='{{"data":{{"ACCESSTOKEN": "{b64valaccess}"}}}}'"""
     run(cmd, shell=True)
     run(cmd2, shell=True)
-
     return response_content['access_token']
 
 
 access_token = refresh_token()
 
 headers = {"Authorization": f"Bearer {access_token}"}
-
-
-
-
-def logging(response1, response2):
-    print(f"{date}-{response1}-{response2}")
 
 
 def send_slack_message(amount):
@@ -95,13 +93,17 @@ def send_slack_message(amount):
         # You will get a SlackApiError if "ok" is False
         assert e.response["ok"] is False
         assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-        print(f"Got an error: {e.response['error']}")
+        logging.error(f"Got an error: {e.response['error']}")
 
 
 def get_account_id():
     params = {"account_type": "uk_retail_joint"}
     response = requests.get('https://api.monzo.com/accounts', headers=headers, params=params)
-    logging(response.status_code, response.text)
+    logging.info(f"{response.status_code}-{response.text}")
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise SystemExit(logging.error(e))
     response_content = json.loads(response.text)
     account_id = response_content['accounts'][0]['id']
     return account_id
@@ -110,7 +112,11 @@ def get_account_id():
 def get_pots():
     params = {"current_account_id": f"{get_account_id()}"}
     response = requests.get('https://api.monzo.com/pots', headers=headers, params=params)
-    logging(response.status_code, response.text)
+    logging.info(f"{response.status_code}-{response.text}")
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise SystemExit(logging.error(e))
     response_contents = json.loads(response.text)
     return response_contents['pots']
 
@@ -124,7 +130,11 @@ def get_saving_pot(pot_name):
 def get_balance():
     params = {"account_id": f"{get_account_id()}"}
     response = requests.get('https://api.monzo.com/balance', headers=headers, params=params)
-    logging(response.status_code, response.text)
+    logging.info(f"{response.status_code}-{response.text}")
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise SystemExit(logging.error(e))
     response_contents = json.loads(response.text)
     return response_contents['balance']
 
@@ -138,8 +148,12 @@ def make_deposit(amount):
     response = requests.put(f"https://api.monzo.com/pots/{get_saving_pot('Wedding')}/deposit",
                             headers=headers,
                             data=params)
-    logging("request", response.request.body)
-    logging(response.status_code, response.text)
+    logging.info(f"requesting-{response.request.body}")
+    logging.info(f"{response.status_code}-{response.text}")
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise SystemExit(logging.error(e))
     return response
 
 
@@ -158,17 +172,17 @@ def total_failed():
                 total += num
             except ValueError:
                 print(f"{line} is not a number!")
-    print(f"Total unable to be processed: £{total/100}")
+    logging.error(f"Total unable to be processed: £{total/100}")
 
 
 def balance_check():
     if get_balance() < day_of_year:
-        print("Current balance lower than required")
+        logging.warning("Current balance lower than required")
         print_balance(day_of_year)
         total_failed()
     else:
-        print(make_deposit(day_of_year).text)
-        print(f"Deposit of £{day_of_year/100} made")
+        logging.info(make_deposit(day_of_year).text)
+        logging.info(f"Deposit of £{day_of_year/100} made")
         send_slack_message(day_of_year)
         open(f'outputs/complete-{date}.txt', 'w').close()
         # open('outputs/balance.txt', 'w').close()
@@ -176,7 +190,7 @@ def balance_check():
 
 def main():
     if os.path.isfile(f"outputs/complete-{date}.txt"):
-        print("Script ran today already")
+        logging.warning("Script ran today already")
     else:
         balance_check()
 
