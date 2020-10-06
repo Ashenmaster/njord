@@ -60,10 +60,12 @@ def refresh_token():
 
     response = requests.request("POST", url, headers=headers, data=payload, files=files)
     response_content = json.loads(response.text)
+    print(response_content)
     refreshToken = response_content['refresh_token']
     b64val = b64encodestr(refreshToken)
     cmd = f"""kubectl patch secret njord -p='{{"data":{{"REFRESHTOKEN": "{b64val}"}}}}'"""
     run(cmd, shell=True)
+
     return response_content['access_token']
 
 
@@ -78,18 +80,18 @@ def logging(response1, response2):
     print(f"{date}-{response1}-{response2}")
 
 
-# def send_slack_message(amount):
-#     client = WebClient(token=os.environ['SLACKTOKEN'])
-#     try:
-#         response = client.chat_postMessage(
-#             channel='#random',
-#             text=f":pound: £{amount/100} has been deposited")
-#         assert response["message"]["text"] == f":pound: £{amount/100} has been deposited"
-#     except SlackApiError as e:
-#         # You will get a SlackApiError if "ok" is False
-#         assert e.response["ok"] is False
-#         assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-#         print(f"Got an error: {e.response['error']}")
+def send_slack_message(amount):
+    client = WebClient(token=os.environ['SLACKTOKEN'])
+    try:
+        response = client.chat_postMessage(
+            channel='#random',
+            text=f":pound: £{amount/100} has been deposited")
+        assert response["message"]["text"] == f":pound: £{amount/100} has been deposited"
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["ok"] is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        print(f"Got an error: {e.response['error']}")
 
 
 def get_account_id():
