@@ -1,5 +1,6 @@
 import json
 import logging
+import locale
 import os
 import random
 import string
@@ -14,18 +15,9 @@ from subprocess import run
 import requests
 from dotenv import load_dotenv
 
-load_dotenv("./.env")
+locale.setlocale( locale.LC_ALL, 'en_GB.UTF-8')
 
-# DEPOSIT_BLOCK = {
-#         "type": "section",
-#         "text": {
-#             "type": "mrkdwn",
-#             "text": (
-#                 "Welcome to Slack! :wave: We're so glad you're here. :blush:\n\n"
-#                 "*Get started by completing the steps below:*"
-#             ),
-#         },
-#     }
+load_dotenv("./.env")
 
 logging.basicConfig(format='%(asctime)s-%(levelname)s: %(message)s', datefmt='%d-%m-%Y-%H:%M:%S', level=logging.INFO)
 
@@ -41,6 +33,30 @@ ownerID = os.getenv("OWNERID")
 refreshToken = os.getenv("REFRESHTOKEN")
 accessToken = os.getenv("ACCESSTOKEN")
 
+
+def send_slack_message(amount):
+    client = WebClient(token=os.environ['SLACKTOKEN'])
+    deposit_block = {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f":pound: {locale.currency(amount/100)} has been deposited"
+            ,
+        },
+    }
+    try:
+        response = client.chat_postMessage(
+            channel='#random',
+            text= "Deposit Made",
+            blocks=[deposit_block]
+        )
+        assert response["message"]["blocks"][0]["text"]["text"] == f":pound: " \
+                                                                   f"{locale.currency(amount/100)} has been deposited"
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["ok"] is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        logging.error(f"Got an error: {e.response['error']}")
 
 def b64encodestr(key):
     return b64encode(key.encode("utf-8")).decode()
@@ -80,20 +96,6 @@ def refresh_token():
 access_token = refresh_token()
 
 headers = {"Authorization": f"Bearer {access_token}"}
-
-
-def send_slack_message(amount):
-    client = WebClient(token=os.environ['SLACKTOKEN'])
-    try:
-        response = client.chat_postMessage(
-            channel='#random',
-            text=f":pound: £{amount/100} has been deposited")
-        assert response["message"]["text"] == f":pound: £{amount/100} has been deposited"
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["ok"] is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-        logging.error(f"Got an error: {e.response['error']}")
 
 
 def get_account_id():
@@ -176,7 +178,7 @@ def total_failed():
     except FileNotFoundError as fnf_error:
         raise SystemExit(logging.error(fnf_error))
 
-    logging.error(f"Total unable to be processed: £{total/100}")
+    logging.error(f"Total unable to be processed: £{locale.currency(total/100)}")
 
 
 def balance_check():
@@ -186,7 +188,7 @@ def balance_check():
         total_failed()
     else:
         logging.info(make_deposit(day_of_year).text)
-        logging.info(f"Deposit of £{day_of_year/100} made")
+        logging.info(f"Deposit of £{locale.currency(day_of_year/100)} made")
         send_slack_message(day_of_year)
         open(f'outputs/complete-{date}.txt', 'w').close()
 
