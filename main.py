@@ -27,7 +27,7 @@ load_dotenv("./.env")
 #         },
 #     }
 
-logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s-%(levelname)s: %(message)s', datefmt='%d-%m-%Y-%H:%M:%S', level=logging.INFO)
 
 day_of_year = datetime.today().timetuple().tm_yday
 
@@ -57,10 +57,10 @@ def refresh_token():
     files = [
 
     ]
-    headers = {
+    authheader = {
         'Authorization': f'token {accessToken}',
     }
-    response = requests.request("POST", url, headers=headers, data=payload, files=files)
+    response = requests.request("POST", url, headers=authheader, data=payload, files=files)
     logging.info(f"{response.status_code}-{response.text}")
     try:
         response.raise_for_status()
@@ -165,13 +165,17 @@ def print_balance(balance):
 
 def total_failed():
     total = 0
-    with open('outputs/balance.txt', 'r') as inp:
-        for line in inp:
-            try:
-                num = float(line)
-                total += num
-            except ValueError:
-                print(f"{line} is not a number!")
+    try:
+        with open('outputs/balance.txt', 'r') as inp:
+            for line in inp:
+                try:
+                    num = float(line)
+                    total += num
+                except ValueError:
+                    print(f"{line} is not a number!")
+    except FileNotFoundError as fnf_error:
+        raise SystemExit(logging.error(fnf_error))
+
     logging.error(f"Total unable to be processed: £{total/100}")
 
 
@@ -185,7 +189,6 @@ def balance_check():
         logging.info(f"Deposit of £{day_of_year/100} made")
         send_slack_message(day_of_year)
         open(f'outputs/complete-{date}.txt', 'w').close()
-        # open('outputs/balance.txt', 'w').close()
 
 
 def main():
