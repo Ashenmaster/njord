@@ -3,3 +3,7 @@ default:
   before_script:
     - apt-get update
     - python -v
+
+build:
+    script:
+        - echo "Build Stage"
