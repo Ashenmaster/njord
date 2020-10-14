@@ -1,0 +1,5 @@
+default:
+  image: python:3
+  before_script:
+    - apt-get update
+    - python -v
